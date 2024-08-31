@@ -55,6 +55,50 @@ class FrozenBatchNorm2d(torch.nn.Module):
         return x * scale + bias
 
 
+class FPNModule(nn.Module):
+    def __init__(self, in_channels_list, out_channels):
+        super(FPNModule, self).__init__()
+        self.inner_blocks = nn.ModuleList()
+        self.layer_blocks = nn.ModuleList()
+        for in_channels in in_channels_list:
+            if in_channels == 0:
+                self.inner_blocks.append(None)
+                self.layer_blocks.append(None)
+            else:
+                self.inner_blocks.append(nn.Conv2d(in_channels, out_channels, 1))
+                self.layer_blocks.append(nn.Conv2d(out_channels, out_channels, 3, stride=1, padding=1))
+
+    def forward(self, x):
+        last_inner = self.inner_blocks[-1](x[-1])
+        results = [last_inner]  # 마지막 레이어의 출력을 추가
+        for i in range(len(x) - 2, -1, -1):
+            if self.inner_blocks[i] is None:
+                continue
+            inner_lateral = self.inner_blocks[i](x[i])
+            feat_shape = inner_lateral.shape[-2:]
+            inner_top_down = F.interpolate(last_inner, size=feat_shape, mode="nearest")
+            last_inner = inner_lateral + inner_top_down
+            results.insert(0, self.layer_blocks[i](last_inner))
+        return results
+
+class ASFFLayer(nn.Module):
+    def __init__(self, in_channels_list, out_channels):
+        super(ASFFLayer, self).__init__()
+        self.asff_modules = nn.ModuleList([self._make_asff_layer(in_c, out_channels) for in_c in in_channels_list])
+
+    def _make_asff_layer(self, in_channels, out_channels):
+        return nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, 1, 1, 0),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, inputs):
+        # 입력 리스트의 개수를 확인하고, ASFF 레이어의 모듈 리스트와 비교합니다.
+        assert len(inputs) == len(self.asff_modules), f"Expected {len(self.asff_modules)} inputs, but got {len(inputs)}"
+        fused_outs = [self.asff_modules[i](inputs[i]) for i in range(len(inputs))]
+        return sum(fused_outs)
+
 class BackboneBase(nn.Module):
 
     def __init__(self, backbone: nn.Module, train_backbone: bool, num_channels: int, return_interm_layers: bool):
@@ -69,6 +113,10 @@ class BackboneBase(nn.Module):
         self.body = IntermediateLayerGetter(backbone, return_layers=return_layers)
         self.num_channels = num_channels
 
+        # FPN과 ASFF 모듈 추가
+        self.fpn = FPNModule(in_channels_list=[256, 512, 1024, 2048], out_channels=num_channels)
+        self.asff = ASFFLayer(in_channels_list=[num_channels] * len(return_layers), out_channels=num_channels)
+
     def forward(self, tensor_list: NestedTensor):
         xs = self.body(tensor_list.tensors)
         out: Dict[str, NestedTensor] = {}
@@ -77,7 +125,22 @@ class BackboneBase(nn.Module):
             assert m is not None
             mask = F.interpolate(m[None].float(), size=x.shape[-2:]).to(torch.bool)[0]
             out[name] = NestedTensor(x, mask)
-        return out
+        
+        # NestedTensor에서 텐서를 추출
+        features = [out[name].tensors for name in out.keys()]
+
+        # FPN을 통해 다중 스케일 피처 생성
+        fpn_features = self.fpn(features)
+        
+        # ASFF를 통해 피처 통합
+        integrated_features = self.asff(fpn_features)
+
+        # 통합된 피처를 NestedTensor 형태로 반환
+        final_out = NestedTensor(integrated_features, mask)
+
+        return final_out
+
+
 
 
 class Backbone(BackboneBase):
@@ -92,21 +155,29 @@ class Backbone(BackboneBase):
         num_channels = 512 if name in ('resnet18', 'resnet34') else 2048
         super().__init__(backbone, train_backbone, num_channels, return_interm_layers)
 
-
 class Joiner(nn.Sequential):
     def __init__(self, backbone, position_embedding):
         super().__init__(backbone, position_embedding)
 
     def forward(self, tensor_list: NestedTensor):
         xs = self[0](tensor_list)
-        out: List[NestedTensor] = []
+        
+        out = []
         pos = []
-        for name, x in xs.items():
-            out.append(x)
-            # position encoding
-            pos.append(self[1](x).to(x.tensors.dtype))
+        
+        # xs가 dict가 아니라 NestedTensor일 경우 처리
+        if isinstance(xs, NestedTensor):
+            out.append(xs)
+            pos.append(self[1](xs).to(xs.tensors.dtype))
+        else:
+            for name, x in xs.items():
+                out.append(x)
+                # position encoding
+                pos.append(self[1](x).to(x.tensors.dtype))
 
         return out, pos
+
+
 
 
 def build_backbone(args):
