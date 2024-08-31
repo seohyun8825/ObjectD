@@ -43,8 +43,7 @@ class FrozenBatchNorm2d(torch.nn.Module):
             missing_keys, unexpected_keys, error_msgs)
 
     def forward(self, x):
-        # move reshapes to the beginning
-        # to make it fuser-friendly
+
         w = self.weight.reshape(1, -1, 1, 1)
         b = self.bias.reshape(1, -1, 1, 1)
         rv = self.running_var.reshape(1, -1, 1, 1)
@@ -94,7 +93,7 @@ class ASFFLayer(nn.Module):
         )
 
     def forward(self, inputs):
-        # 입력 리스트의 개수를 확인하고, ASFF 레이어의 모듈 리스트와 비교합니다.
+        
         assert len(inputs) == len(self.asff_modules), f"Expected {len(self.asff_modules)} inputs, but got {len(inputs)}"
         fused_outs = [self.asff_modules[i](inputs[i]) for i in range(len(inputs))]
         return sum(fused_outs)
@@ -129,13 +128,13 @@ class BackboneBase(nn.Module):
         # NestedTensor에서 텐서를 추출
         features = [out[name].tensors for name in out.keys()]
 
-        # FPN을 통해 다중 스케일 피처 생성
+
         fpn_features = self.fpn(features)
         
-        # ASFF를 통해 피처 통합
+
         integrated_features = self.asff(fpn_features)
 
-        # 통합된 피처를 NestedTensor 형태로 반환
+
         final_out = NestedTensor(integrated_features, mask)
 
         return final_out
