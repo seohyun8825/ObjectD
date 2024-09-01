@@ -1,4 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import argparse
 import datetime
 import json
@@ -150,7 +149,7 @@ def main(args):
     if args.visualize:
         print(f"Visualizing the image at index {args.visualize_index}")
         dataset_train.visualize(args.visualize_index)
-        # 시각화 후 바로 학습 종료를 원한다면, 아래의 return 문을 추가하여 학습 종료
+
         return
     if args.distributed:
         sampler_train = DistributedSampler(dataset_train)
@@ -202,16 +201,26 @@ def main(args):
 
     print("Start training")
     start_time = time.time()
-    #print("Starting the training loop...")
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             sampler_train.set_epoch(epoch)
         print(f"Starting epoch {epoch}...")
+
+        # 에포크 단위로 훈련을 수행합니다.
         train_stats = train_one_epoch(
-            model, criterion, data_loader_train, optimizer, device, epoch,
-            args.clip_max_norm)
+            model, criterion, data_loader_train, optimizer, device, epoch, args.clip_max_norm
+        )
+
         lr_scheduler.step()
+
+        # 에포크가 끝난 후 평가를 수행합니다.
+        test_stats, coco_evaluator = evaluate(
+            model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir
+        )
+        mAP = coco_evaluator.coco_eval["bbox"].stats[0]  # mAP at IoU=0.50:0.95
+        print(f"Epoch {epoch}: mAP: {mAP:.4f}")
+
         if args.output_dir:
             checkpoint_paths = [output_dir / 'checkpoint.pth']
             # extra checkpoint before LR drop and every 100 epochs
@@ -225,10 +234,6 @@ def main(args):
                     'epoch': epoch,
                     'args': args,
                 }, checkpoint_path)
-
-        test_stats, coco_evaluator = evaluate(
-            model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir
-        )
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      **{f'test_{k}': v for k, v in test_stats.items()},

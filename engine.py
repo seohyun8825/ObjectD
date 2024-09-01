@@ -78,9 +78,10 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     metric_logger.add_meter('class_error', utils.SmoothedValue(window_size=1, fmt='{value:.2f}'))
     header = 'Test:'
 
+    print_freq = 10
+
     iou_types = tuple(k for k in ('segm', 'bbox') if k in postprocessors.keys())
     coco_evaluator = CocoEvaluator(base_ds, iou_types)
-    # coco_evaluator.coco_eval[iou_types[0]].params.iouThrs = [0, 0.1, 0.5, 0.75]
 
     panoptic_evaluator = None
     if 'panoptic' in postprocessors.keys():
@@ -94,16 +95,12 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
         print("Processing a batch...")
         samples = samples.to(device)
-        
 
         # Convert to device only if it's a tensor
         targets = [{k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in t.items()} for t in targets]
-        
+
         outputs = model(samples)
         loss_dict = criterion(outputs, targets)
-
-
-
 
         weight_dict = criterion.weight_dict
 
@@ -123,14 +120,24 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         if 'segm' in postprocessors.keys():
             target_sizes = torch.stack([t["size"] for t in targets], dim=0)
             results = postprocessors['segm'](results, outputs, orig_target_sizes, target_sizes)
-        res = {target['image_id'].item(): output for target, output in zip(targets, results)}
+
+        # Modify this part to handle both tensor and string IDs
+        res = {}
+        for target, output in zip(targets, results):
+            image_id = target['image_id']
+            if isinstance(image_id, torch.Tensor):
+                image_id = image_id.item()
+            res[image_id] = output
+
         if coco_evaluator is not None:
             coco_evaluator.update(res)
 
         if panoptic_evaluator is not None:
             res_pano = postprocessors["panoptic"](outputs, target_sizes, orig_target_sizes)
             for i, target in enumerate(targets):
-                image_id = target["image_id"].item()
+                image_id = target["image_id"]
+                if isinstance(image_id, torch.Tensor):
+                    image_id = image_id.item()
                 file_name = f"{image_id:012d}.png"
                 res_pano[i]["image_id"] = image_id
                 res_pano[i]["file_name"] = file_name
@@ -163,3 +170,4 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         stats['PQ_th'] = panoptic_res["Things"]
         stats['PQ_st'] = panoptic_res["Stuff"]
     return stats, coco_evaluator
+
