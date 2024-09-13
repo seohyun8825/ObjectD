@@ -1,6 +1,9 @@
 
 python main.py --coco_path data --resume https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth --want_class 8 --output_dir finetuning_detr4
 
+중간체크포인트부터
+python main.py --coco_path data --resume finetuning_detr4/checkpoint.pth --want_class 9 --output_dir finetuning_detr4 --batch_size 6
+
 
 
 modified_backbone --> FPN이랑 ASFF 추가 완료
