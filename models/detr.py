@@ -34,7 +34,7 @@ class DETR(nn.Module):
         self.num_queries = num_queries
         self.transformer = transformer
         hidden_dim = transformer.d_model
-        self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
+        self.class_embed = nn.Linear(hidden_dim, num_classes+1)
         self.bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
         self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
@@ -42,7 +42,7 @@ class DETR(nn.Module):
         self.aux_loss = aux_loss
 
     def forward(self, samples: NestedTensor):
-        """ The forward expects a NestedTensor, which consists of:
+        """혻The forward expects a NestedTensor, which consists of:
                - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
                - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels
 
@@ -81,22 +81,10 @@ class DETR(nn.Module):
 
 
 class SetCriterion(nn.Module):
-    """ This class computes the loss for DETR.
-    The process happens in two steps:
-        1) we compute hungarian assignment between ground truth boxes and the outputs of the model
-        2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
-    """
     def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses):
-        """ Create the criterion.
-        Parameters:
-            num_classes: number of object categories, omitting the special no-object category
-            matcher: module able to compute a matching between targets and proposals
-            weight_dict: dict containing as key the names of the losses and as values their relative weight.
-            eos_coef: relative classification weight applied to the no-object category
-            losses: list of all the losses to be applied. See get_loss for list of available losses.
-        """
         super().__init__()
         self.num_classes = num_classes
+        
         self.matcher = matcher
         self.weight_dict = weight_dict
         self.eos_coef = eos_coef
@@ -300,21 +288,9 @@ class MLP(nn.Module):
             x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
         return x
 
-
 def build(args):
-    # the `num_classes` naming here is somewhat misleading.
-    # it indeed corresponds to `max_obj_id + 1`, where max_obj_id
-    # is the maximum id for a class in your dataset. For example,
-    # COCO has a max_obj_id of 90, so we pass `num_classes` to be 91.
-    # As another example, for a dataset that has a single class with id 1,
-    # you should pass `num_classes` to be 2 (max_obj_id + 1).
-    # For more details on this, check the following discussion
-    # https://github.com/facebookresearch/detr/issues/108#issuecomment-650269223
-    num_classes = 20 if args.dataset_file != 'coco' else 91
-    if args.dataset_file == "coco_panoptic":
-        # for panoptic, we just add a num_classes that is large enough to hold
-        # max_obj_id + 1, but the exact value doesn't really matter
-        num_classes = 250
+
+    num_classes = args.want_class
     device = torch.device(args.device)
 
     backbone = build_backbone(args)
@@ -336,7 +312,6 @@ def build(args):
     if args.masks:
         weight_dict["loss_mask"] = args.mask_loss_coef
         weight_dict["loss_dice"] = args.dice_loss_coef
-    # TODO this is a hack
     if args.aux_loss:
         aux_weight_dict = {}
         for i in range(args.dec_layers - 1):
@@ -346,7 +321,6 @@ def build(args):
     losses = ['labels', 'boxes', 'cardinality']
     if args.masks:
         losses += ["masks"]
-    num_classes = args.want_class + 1
 
     criterion = SetCriterion(num_classes, matcher=matcher, weight_dict=weight_dict,
                              eos_coef=args.eos_coef, losses=losses)
