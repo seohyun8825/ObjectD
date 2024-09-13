@@ -182,11 +182,13 @@ def main(args):
         if args.resume.startswith('https'):
             checkpoint = torch.hub.load_state_dict_from_url(
                 args.resume, map_location='cpu', check_hash=True)
+            model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
+            num_ftrs = model_without_ddp.class_embed.in_features
+            model_without_ddp.class_embed = nn.Linear(num_ftrs, args.want_class + 2).to(device)
         else:
             checkpoint = torch.load(args.resume, map_location='cpu')
-        model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
-        num_ftrs = model_without_ddp.class_embed.in_features
-        model_without_ddp.class_embed = nn.Linear(num_ftrs, args.want_class + 2).to(device)
+            model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
+       
         if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
