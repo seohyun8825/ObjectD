@@ -19,14 +19,17 @@ Download the dataset from [here](https://www.hscaichallenge.com/datasets) and or
 To set up the environment for the Modified DETR project, follow these steps:
 
 Step 1: Create a new Conda environment
+```bash
 conda create -n modified_detr python=3.8
-
+```
 Step 2: Activate the environment
+```bash
 conda activate modified_detr
-
+```
 Step 3: Install the required dependencies
+```bash
 pip install -r requirements.txt
-
+```
 
 
 ## Running the Code
