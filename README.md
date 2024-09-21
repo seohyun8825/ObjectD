@@ -50,7 +50,9 @@ python main.py --coco_path data \
    
 ## Model Modifications
 modified_backbone --> FPN이랑 ASFF 추가 완료
+
 배치 1로만해봤는데 성능 꽤 괜찮은듯
+
 fourier는 효과가 없는거 같아서 뺏음
 
 todo
