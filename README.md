@@ -26,13 +26,15 @@ pip install -r requirements.txt
 ## Running the Code
 1. Using Pretrained DETR
 To start training from the original DETR pretrained weights, run:
+
 python main.py --coco_path data \
                --resume https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth \
                --want_class 8 \
                --output_dir finetuning_detr4
    
-2. Resuming from a Checkpoint
+3. Resuming from a Checkpoint
 To continue training from a previous checkpoint:
+
 python main.py --coco_path data \
                --resume finetuning_detr4/checkpoint.pth \
                --want_class 9 \
