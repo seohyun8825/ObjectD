@@ -1,4 +1,4 @@
-# Hanwha System AI Challenge - Infrared Sensor Dataset Detection
+# Infrared Sensor Object Detection
 
 This project modifies the original [DETR](https://github.com/facebookresearch/detr) (DEtection TRansformers) to better handle the Infrared Sensor Dataset from the Hanwha System AI Challenge.
 
