@@ -6,13 +6,14 @@ This project modifies the original [DETR](https://github.com/facebookresearch/de
 
 Download the dataset from [here](https://www.hscaichallenge.com/datasets) and organize it as follows:
 
+```bash
 /data
 ├── test_images/           # Test image files
 ├── train_images/          # Training image files
 ├── val_images/            # Validation image files
 ├── train_annotations.json # Training annotations
 └── val_annotations.json   # Validation annotations
-
+```
 ## Installation
 
 To set up the environment for the Modified DETR project, follow these steps:
@@ -31,21 +32,21 @@ pip install -r requirements.txt
 ## Running the Code
 1. Using Pretrained DETR
 To start training from the original DETR pretrained weights, run:
-
+```bash
 python main.py --coco_path data \
                --resume https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth \
                --want_class 8 \
                --output_dir finetuning_detr4
-   
+```   
 3. Resuming from a Checkpoint
 To continue training from a previous checkpoint:
-
+```bash
 python main.py --coco_path data \
                --resume finetuning_detr4/checkpoint.pth \
                --want_class 9 \
                --output_dir finetuning_detr4 \
                --batch_size 6
-
+```
    
 ## Model Modifications
 modified_backbone --> FPN이랑 ASFF 추가 완료
