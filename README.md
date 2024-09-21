@@ -6,7 +6,12 @@ This project modifies the original [DETR](https://github.com/facebookresearch/de
 
 Download the dataset from [here](https://www.hscaichallenge.com/datasets) and organize it as follows:
 
-/data │ ├── test_images/ # Test image files ├── train_images/ # Training image files ├── val_images/ # Validation image files ├── train_annotations.json # Training annotations └── val_annotations.json # Validation annotations
+/data
+├── test_images/           # Test image files
+├── train_images/          # Training image files
+├── val_images/            # Validation image files
+├── train_annotations.json # Training annotations
+└── val_annotations.json   # Validation annotations
 
 ## Installation
 
